@@ -49,3 +49,8 @@ coverage.xml
 # Sphinx documentation
 docs/_build/
 
+*.jpg
+*.jpeg
+*.png
+*.svg
+
