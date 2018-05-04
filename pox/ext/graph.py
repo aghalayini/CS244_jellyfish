@@ -100,5 +100,5 @@ if __name__ == "__main__":
     
     t.calculate_all_paths()
     y_axes = {'k_count':t.to_y_axis('k_count'), 'ecmp8_count':t.to_y_axis('ecmp8_count'), 'ecmp64_count': t.to_y_axis('ecmp64_count')}
-    print(y_axes)
+    # print(y_axes)
     t.draw_fig9(y_axes)
