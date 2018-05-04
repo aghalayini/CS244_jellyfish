@@ -6,7 +6,7 @@ from itertools import islice
 import numpy as np
 
 
-class Topology:
+class NXTopology:
     
     def __init__(self, number_of_servers=686, switch_graph_degree=14, number_of_links=2800, labels=['k_count', 'ecmp8_count', 'ecmp64_count']):
         self.number_of_servers = number_of_servers
@@ -22,7 +22,7 @@ class Topology:
         
         for label in labels:
             for e in self.G.edges():
-                self.G.edges[e][label] = 0
+                self.G[e[0]][e[1]][label] = 0
         
         print("number_of_servers_in_rack = " + str(self.number_of_servers_in_rack))
         print("number_of_switch_ports = " + str(self.number_of_switch_ports))
@@ -34,8 +34,8 @@ class Topology:
                 return i
         return n - 1
     
-    def get_graph(self):
-        return self.G
+    def get_rack_index(self, server_index):
+        return server_index % self.number_of_racks
     
     def add_to_edge_label(self, chosen_paths, label):
         
@@ -46,8 +46,8 @@ class Topology:
     def calculate_all_paths(self):
         for sender in range(len(self.sender_to_receiver)):
             receiver = self.sender_to_receiver[sender]
-            node1 = sender // self.number_of_servers_in_rack
-            node2 = receiver // self.number_of_servers_in_rack
+            node1 = self.get_rack_index(sender)
+            node2 = self.get_rack_index(receiver)
             # print(node1, node2)
             shortest_paths = list(islice(nx.shortest_simple_paths(self.G, node1, node2), 64))
             k_shortest_paths = islice(shortest_paths, self.shortest_path_k)
@@ -96,7 +96,7 @@ class Topology:
 
 
 if __name__ == "__main__":
-    t = Topology()
+    t = NXTopology()
     
     t.calculate_all_paths()
     y_axes = {'k_count':t.to_y_axis('k_count'), 'ecmp8_count':t.to_y_axis('ecmp8_count'), 'ecmp64_count': t.to_y_axis('ecmp64_count')}
