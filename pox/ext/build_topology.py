@@ -126,6 +126,6 @@ if __name__ == "__main__":
     #sleep(5)
     #h2.cmd('kill %ping')
     
-    # CLI(net)
+    CLI(net)
     net.stop()
     Cleanup.cleanup()
