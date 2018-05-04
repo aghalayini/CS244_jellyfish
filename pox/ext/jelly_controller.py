@@ -25,6 +25,7 @@ import pox.openflow.libopenflow_01 as of
 import pox.lib.packet as pkt
 from pox.lib.util import dpid_to_str, str_to_dpid
 from pox.lib.util import str_to_bool
+from pox.ext.build_topology import get_next_hop
 import time
 
 log = core.getLogger()
@@ -102,7 +103,7 @@ class JellySwitch (object):
         if packet.type == pkt.IP_TYPE: #packet is ethernet in swtiches
             ip_packet = packet.payload
             tcp_packet = packet.find('TCP')
-            ##########port=f(ip_packet.srcip,ip_packet.dstip,tcp_packet.srcport,tcp_packet.dstport,event.dpid)
+            port=get_next_hop(ip_packet.srcip,ip_packet.dstip,tcp_packet.srcport,tcp_packet.dstport,event.dpid)
 
             if port == event.port:  # 5
                 # 5a
