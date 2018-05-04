@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import networkx as nx
 from itertools import islice
 import numpy as np
+import random
 
 
 class NXTopology:
@@ -18,7 +19,7 @@ class NXTopology:
         self.shortest_path_k = 8
         
         self.G = nx.random_regular_graph(self.switch_graph_degree, self.number_of_racks)
-        self.sender_to_receiver = np.random.permutation(self.number_of_servers)  # sender_to_receiver[i] = j <=> i sends message to j
+        self.sender_to_receiver = self.random_derangement(self.number_of_servers)  # sender_to_receiver[i] = j <=> i sends message to j
         
         for label in labels:
             for e in self.G.edges():
@@ -27,6 +28,19 @@ class NXTopology:
         print("number_of_servers_in_rack = " + str(self.number_of_servers_in_rack))
         print("number_of_switch_ports = " + str(self.number_of_switch_ports))
         print("RRG has " + str(self.number_of_racks) + " nodes with degree " + str(self.switch_graph_degree) + " and " + str(self.G.number_of_edges()) + " edges")
+
+    def random_derangement(self, n):
+        while True:
+            array = range(n)
+            for i in range(n - 1, -1, -1):
+                p = random.randint(0, i)
+                if array[p] == i:
+                    break
+                else:
+                    array[i], array[p] = array[p], array[i]
+            else:
+                if array[0] != 0:
+                    return array
 
     def ECMP_last_index(self, shortest_paths, n):
         for i in range(min(n, len(shortest_paths)) - 1):
@@ -38,10 +52,12 @@ class NXTopology:
         return server_index % self.number_of_racks
     
     def add_to_edge_label(self, chosen_paths, label):
-        
+        s = set()
         for path in chosen_paths:
             for i in range(len(path) - 1):
-                self.G[path[i]][path[i + 1]][label] += 1
+                if (path[i],path[i + 1]) not in s:
+                    #s.add((path[i],path[i + 1]))
+                    self.G[path[i]][path[i + 1]][label] += 1
     
     def calculate_all_paths(self):
         for sender in range(len(self.sender_to_receiver)):
@@ -82,9 +98,8 @@ class NXTopology:
         plt.xlim(0, 3000)
         
         for k in keys:
-            plt.plot(x_axis, y_axes[k])
-            plt.plot(x_axis, y_axes[k])
-            plt.plot(x_axis, y_axes[k])
+            plt.plot(x_axis, y_axes[k], label=k)
+        plt.legend()
         plt.savefig("1.svg")
         
         plt.figure()

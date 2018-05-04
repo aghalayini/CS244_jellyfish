@@ -26,6 +26,7 @@ from itertools import islice
 src_dest_to_next_hop = {} # maps (src_switch_id, dest_switch_id, current_switch_id) to [next_switch_id1, next_switch_id2, ...]
 host_ip_to_host_name = {} # e.g. maps '10.0.0.1' to 'h0'
 nx_topology = None
+iperf_time = 10 # seconds
 
 # current_switch_id is string, e.g. '5'
 # returns int
@@ -114,18 +115,24 @@ if __name__ == "__main__":
     for h in net.hosts:
         host_ip_to_host_name[h.IP()] = h
     
-    print(get_next_hop('10.0.0.1', '10.0.0.2', '1000', '5000', '1'))
+    # print(get_next_hop('10.0.0.1', '10.0.0.2', '1000', '5000', '1'))
     
-    #h1.cmd('iperf -s &')
-    #h2.cmd('iperf -c 10.0.0.1 -t 10 &')
-    #sleep(10)
-    #h1.cmd('kill %iperf')
-    #print(h2.cmd('kill %iperf'))
+    for h in net.hosts:
+        h.cmd('iperf -s &')
     
-    #h2.cmd('ping 10.0.0.1 &')
-    #sleep(5)
-    #h2.cmd('kill %ping')
+    for sender in range(len(nx_topology.sender_to_receiver)):
+        receiver = nx_topology.sender_to_receiver[sender] # int
+        sender_host = net.get('h'+str(sender)) # host object
+        receiver_host = net.get('h'+str(receiver)) # host object
+        command ='iperf -c '+receiver_host.IP()+' -t '+str(iperf_time)+' -i '+str(iperf_time)+' &'
+        print command
+        sender_host.cmd(command)
+        
+    sleep(iperf_time)
     
-    # CLI(net)
+    for h in net.hosts:
+        print h.cmd('kill %iperf')
+    
+    CLI(net)
     net.stop()
     Cleanup.cleanup()
