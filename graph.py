@@ -17,7 +17,7 @@ number_of_servers = 686
 switch_graph_degree = 14  # k
 number_of_racks = 5600 // switch_graph_degree
 
-number_of_servers_in_rack = int(np.ceil(number_of_servers / number_of_racks))
+number_of_servers_in_rack = int(np.ceil(float(number_of_servers) / number_of_racks))
 number_of_switch_ports = number_of_servers_in_rack + switch_graph_degree  # r
 shortest_path_k = 8
 
