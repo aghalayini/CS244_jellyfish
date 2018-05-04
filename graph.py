@@ -6,93 +6,99 @@ from itertools import islice
 import numpy as np
 
 
-def ECMP_last_index(shortest_paths, n):
-    for i in range(min(n, len(shortest_paths)) - 1):
-        if len(shortest_paths[i]) != len(shortest_paths[i + 1]):
-            return i
-    return n - 1
-
-
-number_of_servers = 686
-switch_graph_degree = 14  # k
-number_of_racks = 5600 // switch_graph_degree
-
-number_of_servers_in_rack = int(np.ceil(float(number_of_servers) / number_of_racks))
-number_of_switch_ports = number_of_servers_in_rack + switch_graph_degree  # r
-shortest_path_k = 8
-
-G = nx.random_regular_graph(switch_graph_degree, number_of_racks)
-
-print("number_of_servers_in_rack = " + str(number_of_servers_in_rack))
-print("number_of_switch_ports = " + str(number_of_switch_ports))
-print("RRG has " + str(number_of_racks) + " nodes with degree " + str(switch_graph_degree) + " and " + str(G.number_of_edges()) + " edges")
-
-sender_to_receiver = np.random.permutation(number_of_servers)  # sender_to_receiver[i] = j <=> i sends message to j
-
-for e in G.edges():
-    G.edges[e]['k_count'] = 0
-    G.edges[e]['ecmp8_count'] = 0
-    G.edges[e]['ecmp64_count'] = 0
-
-for sender in range(len(sender_to_receiver)):
-    receiver = sender_to_receiver[sender]
-    node1 = sender // number_of_servers_in_rack
-    node2 = receiver // number_of_servers_in_rack
-    # print(node1, node2)
-    shortest_paths = list(islice(nx.shortest_simple_paths(G, node1, node2), 64))
-    k_shortest_paths = islice(shortest_paths, shortest_path_k)
-    ecmp8 = islice(shortest_paths, ECMP_last_index(shortest_paths, 8) + 1)
-    ecmp64 = islice(shortest_paths, ECMP_last_index(shortest_paths, 64) + 1)
-    for path in k_shortest_paths:
-        for i in range(len(path) - 1):
-            G[path[i]][path[i + 1]]['k_count'] += 1
-            
-    for path in ecmp8:
-        for i in range(len(path) - 1):
-            G[path[i]][path[i + 1]]['ecmp8_count'] += 1
-            
-    for path in ecmp64:
-        for i in range(len(path) - 1):
-            G[path[i]][path[i + 1]]['ecmp64_count'] += 1
-
-y_axis = {"k":[], "ecmp8":[], "ecmp64": []}
-
-count = nx.get_edge_attributes(G, 'k_count')
-edge_to_count = dict(count)
-sorted_edges = sorted(edge_to_count, key=edge_to_count.get)
-print("sorted_edges: " + str(len(sorted_edges)))
-
-for e in sorted_edges:
-    y_axis['k'].append(edge_to_count[e])
+class Topology:
     
-count = nx.get_edge_attributes(G, 'ecmp8_count')
-edge_to_count = dict(count)
-sorted_edges = sorted(edge_to_count, key=edge_to_count.get)
-print("sorted_edges: " + str(len(sorted_edges)))
-
-for e in sorted_edges:
-    y_axis['ecmp8'].append(edge_to_count[e])
+    def __init__(self, number_of_servers=686, switch_graph_degree=14, number_of_links=2800, labels=['k_count', 'ecmp8_count', 'ecmp64_count']):
+        self.number_of_servers = number_of_servers
+        self.switch_graph_degree = switch_graph_degree  # k
+        self.number_of_racks = (2 * number_of_links) // self.switch_graph_degree
     
-count = nx.get_edge_attributes(G, 'ecmp64_count')
-edge_to_count = dict(count)
-sorted_edges = sorted(edge_to_count, key=edge_to_count.get)
-print("sorted_edges: " + str(len(sorted_edges)))
+        self.number_of_servers_in_rack = int(np.ceil(float(self.number_of_servers) / self.number_of_racks))
+        self.number_of_switch_ports = self.number_of_servers_in_rack + self.switch_graph_degree  # r
+        self.shortest_path_k = 8
+        
+        self.G = nx.random_regular_graph(self.switch_graph_degree, self.number_of_racks)
+        self.sender_to_receiver = np.random.permutation(self.number_of_servers)  # sender_to_receiver[i] = j <=> i sends message to j
+        
+        for label in labels:
+            for e in self.G.edges():
+                self.G.edges[e][label] = 0
+        
+        print("number_of_servers_in_rack = " + str(self.number_of_servers_in_rack))
+        print("number_of_switch_ports = " + str(self.number_of_switch_ports))
+        print("RRG has " + str(self.number_of_racks) + " nodes with degree " + str(self.switch_graph_degree) + " and " + str(self.G.number_of_edges()) + " edges")
 
-for e in sorted_edges:
-    y_axis['ecmp64'].append(edge_to_count[e])
+    def ECMP_last_index(self, shortest_paths, n):
+        for i in range(min(n, len(shortest_paths)) - 1):
+            if len(shortest_paths[i]) != len(shortest_paths[i + 1]):
+                return i
+        return n - 1
+    
+    def get_graph(self):
+        return self.G
+    
+    def add_to_edge_label(self, chosen_paths, label):
+        
+        for path in chosen_paths:
+            for i in range(len(path) - 1):
+                self.G[path[i]][path[i + 1]][label] += 1
+    
+    def calculate_all_paths(self):
+        for sender in range(len(self.sender_to_receiver)):
+            receiver = self.sender_to_receiver[sender]
+            node1 = sender // self.number_of_servers_in_rack
+            node2 = receiver // self.number_of_servers_in_rack
+            # print(node1, node2)
+            shortest_paths = list(islice(nx.shortest_simple_paths(self.G, node1, node2), 64))
+            k_shortest_paths = islice(shortest_paths, self.shortest_path_k)
+            ecmp8 = islice(shortest_paths, self.ECMP_last_index(shortest_paths, 8) + 1)
+            ecmp64 = islice(shortest_paths, self.ECMP_last_index(shortest_paths, 64) + 1)
+                        
+            self.add_to_edge_label(k_shortest_paths, 'k_count')
+            self.add_to_edge_label(ecmp8, 'ecmp8_count')
+            self.add_to_edge_label(ecmp64, 'ecmp64_count')
+    
+    def to_y_axis(self, label):
+        ret = []
+        count = nx.get_edge_attributes(self.G, label)
+        edge_to_count = dict(count)
+        sorted_edges = sorted(edge_to_count, key=edge_to_count.get)
+        print("sorted_edges: " + str(len(sorted_edges)))
+    
+        for e in sorted_edges:
+            ret.append(edge_to_count[e])
+            
+        return ret
+    
+    def draw_fig9(self, y_axes):
+        keys = y_axes.keys()
+        m = 0
+        for k in keys:
+            m = max(m, max(y_axes[k]))
+        plt.figure()
+        x_axis = range(len(y_axes[keys[0]]))
+        plt.yticks(range(m + 1))
+        plt.ylim(0, m + 1)
+        plt.xlim(0, 3000)
+        
+        for k in keys:
+            plt.plot(x_axis, y_axes[k])
+            plt.plot(x_axis, y_axes[k])
+            plt.plot(x_axis, y_axes[k])
+        plt.savefig("1.svg")
+        
+        plt.figure()
+        pos = nx.spring_layout(self.G)
+        nx.draw(self.G, pos=pos, with_labels=False, node_size=1, width=0.1)
+        # nx.draw_networkx_edge_labels(G, pos=pos, labels=nx.get_edge_attributes(G, 'count'))
+        plt.savefig("2.svg")
+        plt.show()
 
-plt.figure()
-x_axis = range(len(y_axis['k']))
-plt.yticks(range(int(min(y_axis['k'])), 1 + int(np.ceil(max(y_axis['k'])))))
-plt.ylim(int(min(y_axis['k'])), 1 + int(np.ceil(max(y_axis['k']))))
-plt.plot(x_axis, y_axis['k'])
-plt.plot(x_axis, y_axis['ecmp8'])
-plt.plot(x_axis, y_axis['ecmp64'])
-plt.savefig("1.svg")
 
-plt.figure()
-pos = nx.spring_layout(G)
-nx.draw(G, pos=pos, with_labels=False, node_size=1, width=0.1)
-# nx.draw_networkx_edge_labels(G, pos=pos, labels=nx.get_edge_attributes(G, 'count'))
-plt.savefig("2.svg")
-plt.show()
+if __name__ == "__main__":
+    t = Topology()
+    
+    t.calculate_all_paths()
+    y_axes = {'k_count':t.to_y_axis('k_count'), 'ecmp8_count':t.to_y_axis('ecmp8_count'), 'ecmp64_count': t.to_y_axis('ecmp64_count')}
+    print(y_axes)
+    t.draw_fig9(y_axes)
