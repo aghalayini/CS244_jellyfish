@@ -11,13 +11,14 @@ from mininet.node import RemoteController
 from mininet.cli import CLI
 from mininet.clean import Cleanup
 sys.path.append("../../")
-from pox.ext.jelly_pox import JELLYPOX
+from jelly_pox import JELLYPOX
 from subprocess import Popen
 from time import sleep, time
 from mininet.util import dumpNodeConnections
 import hashlib
 import networkx as nx
 from itertools import islice
+from mininet.log import setLogLevel
 
 # Topology port description:
 # Every switch with switch_id=i is connected to host_id by port "number_of_racks + host_id"
@@ -68,7 +69,6 @@ class JellyFishTop(Topo):
         # connect switches to each other
         # for every link (i,j), switch with switch_id=i is connected to port number i of switch with switch_id=j
         for e in nx_topology.G.edges():
-            print e
             self.addLink('s'+str(e[0]), 's'+str(e[1]), e[1], e[0])
         
         # create hosts and connect them to ToR switch
@@ -106,11 +106,13 @@ class JellyFishTop(Topo):
     
 
 if __name__ == "__main__":
+    os.system('sudo mn -c 2>/dev/null')
+    setLogLevel('info')
     topo = JellyFishTop()
-    net = Mininet(topo=topo, host=CPULimitedHost, link=TCLink, controller=RemoteController)
-    net.addController('c0')
+    net = Mininet(topo=topo, host=CPULimitedHost, link=TCLink, controller=JELLYPOX)
     
     net.start()
+    sleep(3)
     print 'net started'
     
     for h in net.hosts:
@@ -118,6 +120,7 @@ if __name__ == "__main__":
     
     # print(get_next_hop('10.0.0.1', '10.0.0.2', '1000', '5000', '1'))
     
+    '''
     for h in net.hosts:
         h.cmd('iperf -s &')
     
@@ -133,6 +136,8 @@ if __name__ == "__main__":
     
     for h in net.hosts:
         print h.cmd('kill %iperf')
+        
+    '''
     
     CLI(net)
     net.stop()

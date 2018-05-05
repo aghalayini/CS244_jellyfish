@@ -13,7 +13,7 @@ class NXTopology:
         self.number_of_servers = number_of_servers
         self.switch_graph_degree = switch_graph_degree  # k
         self.number_of_racks = (2 * number_of_links) // self.switch_graph_degree
-    
+        
         self.number_of_servers_in_rack = int(np.ceil(float(self.number_of_servers) / self.number_of_racks))
         self.number_of_switch_ports = self.number_of_servers_in_rack + self.switch_graph_degree  # r
         self.shortest_path_k = 8
