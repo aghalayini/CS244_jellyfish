@@ -25,7 +25,8 @@ import pox.openflow.libopenflow_01 as of
 import pox.lib.packet as pkt
 from pox.lib.util import dpid_to_str, str_to_dpid
 from pox.lib.util import str_to_bool
-from build_topology import get_next_hop
+from build_topology import *
+#from build_topology import get_next_hop
 import time
 
 log = core.getLogger()
@@ -69,6 +70,7 @@ class JellySwitch (object):
             else:
                 pass
                 # log.info("Holding down flood for %s", dpid_to_str(event.dpid))
+            log.info("FLOODING {}".format(event.parsed))
             msg.data = event.ofp
             msg.in_port = event.port
             self.connection.send(msg)
@@ -106,14 +108,16 @@ class JellySwitch (object):
         if ip_packet==None: #packet is ethernet in swtiches
             ip_packet=packet.find('ipv6')
         if ip_packet!=None:
-            tcp_packet = packet.find('TCP')
+            tcp_packet = ip_packet.find('tcp')
             if tcp_packet == None:
                 flood()
                 log.info("non TCP traffic: %s" % ip_packet)
                 return
             else:
-                port=get_next_hop(ip_packet.srcip,ip_packet.dstip,tcp_packet.srcport,tcp_packet.dstport,event.dpid)
-                if port == event.port:  # 5
+                log.info("%s, %s, %s, %s, %s" % (ip_packet.srcip,ip_packet.dstip,tcp_packet.srcport,tcp_packet.dstport,event.dpid))
+                log.info(host_ip_to_host_name)
+                port=get_next_hop(str(ip_packet.srcip),str(ip_packet.dstip),tcp_packet.srcport,tcp_packet.dstport,event.dpid)
+                if port == event.port:  # 
                     # 5a
                     log.warning("Same port for packet from %s -> %s on %s.%s.    Drop." % (packet.src, packet.dst, dpid_to_str(event.dpid), port))
                     drop(10)
@@ -154,9 +158,9 @@ def launch ():
     Starts an L2 jelly switch.
     """
     import pox.openflow.discovery
-    pox.openflow.discovery.launch()
+    #pox.openflow.discovery.launch()
 
     core.registerNew(l2_jelly)
 
     import pox.openflow.spanning_tree
-    pox.openflow.spanning_tree.launch(no_flood = True, hold_down = True)
+    #pox.openflow.spanning_tree.launch(no_flood = True, hold_down = True)

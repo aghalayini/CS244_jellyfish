@@ -223,7 +223,7 @@ def _update_tree (force_dpid = None):
 
           _invalidate_ports(con.dpid)
     if change_count:
-      #log.info("%i ports changed", change_count)
+      log.info("%i ports changed", change_count)
   except:
     _prev.clear()
     log.exception("Couldn't push spanning tree")

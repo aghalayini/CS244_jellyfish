@@ -33,6 +33,7 @@ iperf_time = 10 # seconds
 # returns int
 def get_next_hop(src_ip, dest_ip, src_port, dest_port, current_switch_id):
     
+    print("host_ip_to_host_name dict: ",host_ip_to_host_name)
     src_host = host_ip_to_host_name[src_ip] # host object
     dest_host = host_ip_to_host_name[dest_ip] # host object
     src_switch_id = nx_topology.get_rack_index(int(str(src_host)[1:])) # int
@@ -40,9 +41,11 @@ def get_next_hop(src_ip, dest_ip, src_port, dest_port, current_switch_id):
     if str(dest_switch_id) == current_switch_id: # destination host is directly connected to current_switch
         return nx_topology.number_of_racks + int(str(dest_host)[1:])
     
-    
-    next_switch_ids = src_dest_to_next_hop[(src_switch_id, dest_switch_id, current_switch_id)]
+    print(src_dest_to_next_hop) 
+    next_switch_ids = src_dest_to_next_hop[(src_switch_id, dest_switch_id, int(current_switch_id))]
+    print(next_switch_ids)
     next_hop_index = next_hop_selector_hash(src_ip, dest_ip, src_port, dest_port, upper_limit=len(next_switch_ids))
+    print(next_hop_index)
     next_hop = next_switch_ids[next_hop_index]
     return next_hop # because it is also the out_port we should send the packet to
     
@@ -52,7 +55,8 @@ def get_next_hop(src_ip, dest_ip, src_port, dest_port, current_switch_id):
 # output is in [0, upper_limit)
 def next_hop_selector_hash(src_ip, dest_ip, src_port, dest_port, upper_limit=1):
     hash_object = hashlib.md5(src_ip+dest_ip+src_port+dest_port)
-    int(hash_object.hexdigest(), 16) % upper_limit
+    print(hash_object)
+    return int(hash_object.hexdigest(), 16) % upper_limit
 
 
 class JellyFishTop(Topo):
@@ -117,8 +121,8 @@ if __name__ == "__main__":
     
     for h in net.hosts:
         host_ip_to_host_name[h.IP()] = h
-    
-    # print(get_next_hop('10.0.0.1', '10.0.0.2', '1000', '5000', '1'))
+        print(h.IP(),h)
+    print(get_next_hop('10.0.0.1', '10.0.0.2', '1000', '5000', '0'))
     
     '''
     for h in net.hosts:
