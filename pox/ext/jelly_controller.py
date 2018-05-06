@@ -46,8 +46,7 @@ class JellySwitch (object):
         # to the connection
         connection.addListeners(self)
 
-        # log.debug("Initializing LearningSwitch, transparent=%s",
-        #                     str(self.transparent))
+        log.debug("Initializing LearningSwitch")
 
     def _handle_PacketIn (self, event):
         """
@@ -56,6 +55,7 @@ class JellySwitch (object):
 
         packet = event.parsed
         log.info(packet)
+		log.info('controller: host_ip_to_host_name = ' + str(host_ip_to_host_name))
 
         def flood (message=None):
             """ Floods the packet """
@@ -115,7 +115,7 @@ class JellySwitch (object):
                 return
             else:
                 log.info("%s, %s, %s, %s, %s" % (ip_packet.srcip,ip_packet.dstip,tcp_packet.srcport,tcp_packet.dstport,event.dpid))
-                log.info(host_ip_to_host_name)
+                
                 port=get_next_hop(str(ip_packet.srcip),str(ip_packet.dstip),tcp_packet.srcport,tcp_packet.dstport,event.dpid)
                 if port == event.port:  # 
                     # 5a

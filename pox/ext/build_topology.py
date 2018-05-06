@@ -121,9 +121,9 @@ if __name__ == "__main__":
     
     for h in net.hosts:
         host_ip_to_host_name[h.IP()] = h
-        print(h.IP(),h)
-    print(get_next_hop('10.0.0.1', '10.0.0.2', '1000', '5000', '0'))
-    
+
+    #print('next hop = ', get_next_hop('10.0.0.1', '10.0.0.2', '1000', '5000', '0'))
+    print ('build_topology: host_ip_to_host_name = '+str(host_ip_to_host_name))
     '''
     for h in net.hosts:
         h.cmd('iperf -s &')
