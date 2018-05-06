@@ -106,8 +106,8 @@ class JellyFishTop(Topo):
 
 if __name__ == "__main__":
     topo = JellyFishTop()
-    net = Mininet(topo=topo, host=CPULimitedHost, link=TCLink, controller=RemoteController)
-    net.addController('c0')
+    net = Mininet(topo=topo, host=CPULimitedHost, link=TCLink,controller=JELLYPOX)
+    #net.addController('c0',controller=JELLYPOX,ip="127.0.0.1", port=6633)
     
     net.start()
     print 'net started'

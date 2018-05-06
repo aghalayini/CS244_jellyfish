@@ -99,11 +99,20 @@ class JellySwitch (object):
             return
 
         if packet.dst.is_multicast:
-            flood()  # 3a
-        if packet.type == pkt.IP_TYPE: #packet is ethernet in swtiches
-            ip_packet = packet.payload
+            flood()  # 3
+        ip_packet=packet.find('ipv4')
+        if ip_packet ==None:
+            ip_packet=packet.find('ipv6')
+        if ip_packet != None: #packet is ethernet in swtiches
+            #ip_packet = packet.payload
             tcp_packet = packet.find('TCP')
-            port=get_next_hop(ip_packet.srcip,ip_packet.dstip,tcp_packet.srcport,tcp_packet.dstport,event.dpid)
+
+            if tcp_packet is None:
+                flood()
+                log.info(ip_packet) #ip, non tcp traffic
+                return
+            else:
+                port=get_next_hop(ip_packet.srcip,ip_packet.dstip,tcp_packet.srcport,tcp_packet.dstport,event.dpid)
 
             if port == event.port:  # 5
                 # 5a
@@ -119,6 +128,8 @@ class JellySwitch (object):
                 msg.actions.append(of.ofp_action_output(port=port))
                 msg.data = event.ofp  # 6a
                 self.connection.send(msg)
+        else:
+            flood() #non-ip traffic
 
 
 class l2_jelly (object):
