@@ -60,7 +60,7 @@ class JellyFishTop(Topo):
 
     def build(self):
         global nx_topology
-        nx_topology = NXTopology(number_of_servers=25, switch_graph_degree=4, number_of_links=50)
+        nx_topology = NXTopology(number_of_servers=4, switch_graph_degree=1, number_of_links=1)
         
         # create switches
         for n in nx_topology.G.nodes():

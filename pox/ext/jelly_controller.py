@@ -61,7 +61,7 @@ class JellySwitch (object):
             msg = of.ofp_packet_out()
             if time.time() - self.connection.connect_time >= _flood_delay:
                 # Only flood if we've been connected for a little while...
-                if message is not None: log.debug(message)
+                if message is not None: log.info("FLOODING::%s" % message)
                 # log.debug("%i: flood %s -> %s", event.dpid,packet.src,packet.dst)
                 # OFPP_FLOOD is optional; on some switches you may need to change
                 # this to OFPP_ALL.
@@ -78,6 +78,7 @@ class JellySwitch (object):
             Drops this packet and optionally installs a flow to continue
             dropping similar ones for a while
             """
+            log.info("DROPPING::%s" % message)
             if duration is not None:
                 if not isinstance(duration, tuple):
                     duration = (duration, duration)
@@ -100,25 +101,35 @@ class JellySwitch (object):
 
         if packet.dst.is_multicast:
             flood()  # 3a
-        if packet.type == pkt.IPV4: #packet is ethernet in swtiches
-            ip_packet = packet.payload
-            tcp_packet = packet.find('TCP')
-            port=get_next_hop(ip_packet.srcip,ip_packet.dstip,tcp_packet.srcport,tcp_packet.dstport,event.dpid)
 
-            if port == event.port:  # 5
-                # 5a
-                log.warning("Same port for packet from %s -> %s on %s.%s.    Drop." % (packet.src, packet.dst, dpid_to_str(event.dpid), port))
-                drop(10)
+        ip_packet=packet.find('ipv4')
+        if ip_packet==None: #packet is ethernet in swtiches
+            ip_packet=packet.find('ipv6')
+        if ip_packet!=None:
+            tcp_packet = packet.find('TCP')
+            if tcp_packet == None:
+                flood()
+                log.info("non TCP traffic: %s" % ip_packet)
                 return
             else:
-                log.debug("installing flow for %s.%i -> %s.%i" % (packet.src, event.port, packet.dst, port))
-                msg = of.ofp_flow_mod()
-                msg.match = of.ofp_match.from_packet(packet, event.port)
-                msg.idle_timeout = 0
-                msg.hard_timeout = 0
-                msg.actions.append(of.ofp_action_output(port=port))
-                msg.data = event.ofp  # 6a
-                self.connection.send(msg)
+                port=get_next_hop(ip_packet.srcip,ip_packet.dstip,tcp_packet.srcport,tcp_packet.dstport,event.dpid)
+                if port == event.port:  # 5
+                    # 5a
+                    log.warning("Same port for packet from %s -> %s on %s.%s.    Drop." % (packet.src, packet.dst, dpid_to_str(event.dpid), port))
+                    drop(10)
+                    return
+                else:
+                    log.info("installing flow for %s.%i -> %s.%i" % (packet.src, event.port, packet.dst, port))
+                    msg = of.ofp_flow_mod()
+                    msg.match = of.ofp_match.from_packet(packet, event.port)
+                    msg.idle_timeout = 0
+                    msg.hard_timeout = 0
+                    msg.actions.append(of.ofp_action_output(port=port))
+                    msg.data = event.ofp  # 6a
+                    self.connection.send(msg)
+        else:
+            flood() #non-ip traffic
+
 
 
 class l2_jelly (object):
@@ -134,7 +145,7 @@ class l2_jelly (object):
         core.openflow.addListeners(self)
 
     def _handle_ConnectionUp (self, event):
-        log.debug("Connection %s" % (event.connection,))
+        log.info("CONNECTION UP %s" % (event.connection))
         JellySwitch(event.connection)
 
 
