@@ -25,9 +25,11 @@ import pox.openflow.libopenflow_01 as of
 import pox.lib.packet as pkt
 from pox.lib.util import dpid_to_str, str_to_dpid
 from pox.lib.util import str_to_bool
-from build_topology import *
+#from build_topology import get_next_hop
+import build_topology
 #from build_topology import get_next_hop
 import time
+import pickle
 
 log = core.getLogger()
 
@@ -46,7 +48,8 @@ class JellySwitch (object):
         # to the connection
         connection.addListeners(self)
 
-        log.debug("Initializing LearningSwitch")
+        # log.debug("Initializing LearningSwitch, transparent=%s",
+        #                     str(self.transparent))
 
     def _handle_PacketIn (self, event):
         """
@@ -54,8 +57,7 @@ class JellySwitch (object):
         """
 
         packet = event.parsed
-        log.info(packet)
-		log.info('controller: host_ip_to_host_name = ' + str(host_ip_to_host_name))
+        #log.info(packet)
 
         def flood (message=None):
             """ Floods the packet """
@@ -70,7 +72,8 @@ class JellySwitch (object):
             else:
                 pass
                 # log.info("Holding down flood for %s", dpid_to_str(event.dpid))
-            log.info("FLOODING {}".format(event.parsed))
+            if (event.parsed.find('ipv6') is None): 
+                log.info("s{} FLOODING {}".format(event.dpid,event.parsed))
             msg.data = event.ofp
             msg.in_port = event.port
             self.connection.send(msg)
@@ -103,6 +106,7 @@ class JellySwitch (object):
 
         if packet.dst.is_multicast:
             flood()  # 3a
+            return
 
         ip_packet=packet.find('ipv4')
         if ip_packet==None: #packet is ethernet in swtiches
@@ -115,8 +119,12 @@ class JellySwitch (object):
                 return
             else:
                 log.info("%s, %s, %s, %s, %s" % (ip_packet.srcip,ip_packet.dstip,tcp_packet.srcport,tcp_packet.dstport,event.dpid))
-                
-                port=get_next_hop(str(ip_packet.srcip),str(ip_packet.dstip),tcp_packet.srcport,tcp_packet.dstport,event.dpid)
+                src_dest_to_next_hop=pickle.load(open("pox/ext/d1.p","r"))
+                host_ip_to_host_name=pickle.load(open("pox/ext/d2.p","r"))
+                log.info(src_dest_to_next_hop)
+                log.info(host_ip_to_host_name)
+                #log.info(str(ip_packet.srcip),str(ip_packet.dstip),str(tcp_packet.srcport),str(tcp_packet.dstport),str(event.dpid))
+                port=build_topology.get_next_hop(str(ip_packet.srcip),str(ip_packet.dstip),str(tcp_packet.srcport),str(tcp_packet.dstport),str(event.dpid),src_dest_to_next_hop,host_ip_to_host_name)
                 if port == event.port:  # 
                     # 5a
                     log.warning("Same port for packet from %s -> %s on %s.%s.    Drop." % (packet.src, packet.dst, dpid_to_str(event.dpid), port))
@@ -127,7 +135,7 @@ class JellySwitch (object):
                     msg = of.ofp_flow_mod()
                     msg.match = of.ofp_match.from_packet(packet, event.port)
                     msg.idle_timeout = 0
-                    msg.hard_timeout = 0
+                    msg.hard_timeout = 10000
                     msg.actions.append(of.ofp_action_output(port=port))
                     msg.data = event.ofp  # 6a
                     self.connection.send(msg)
@@ -149,7 +157,7 @@ class l2_jelly (object):
         core.openflow.addListeners(self)
 
     def _handle_ConnectionUp (self, event):
-        log.info("CONNECTION UP %s" % (event.connection))
+        log.info("CONNECTION UP %s -- %s" % (event.connection,event.dpid))
         JellySwitch(event.connection)
 
 
@@ -158,9 +166,9 @@ def launch ():
     Starts an L2 jelly switch.
     """
     import pox.openflow.discovery
-    #pox.openflow.discovery.launch()
+    pox.openflow.discovery.launch()
 
     core.registerNew(l2_jelly)
 
     import pox.openflow.spanning_tree
-    #pox.openflow.spanning_tree.launch(no_flood = True, hold_down = True)
+    pox.openflow.spanning_tree.launch(no_flood = True, hold_down = True)
