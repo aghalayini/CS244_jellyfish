@@ -83,7 +83,7 @@ class JellySwitch (object):
             Drops this packet and optionally installs a flow to continue
             dropping similar ones for a while
             """
-            log.info("DROPPING::%s" % message)
+            log.info("s{} DROPPING {}".format(event.dpid,event.parsed))
             if duration is not None:
                 if not isinstance(duration, tuple):
                     duration = (duration, duration)
@@ -131,7 +131,7 @@ class JellySwitch (object):
                     drop(10)
                     return
                 else:
-                    log.info("installing flow for %s.%i -> %s.%i" % (packet.src, event.port, packet.dst, port))
+                    log.info("installing flow on s%s for %s.%i -> %s.%i" % (str(event.dpid),packet.src, event.port, packet.dst, port))
                     msg = of.ofp_flow_mod()
                     msg.match = of.ofp_match.from_packet(packet, event.port)
                     msg.idle_timeout = 0
