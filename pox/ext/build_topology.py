@@ -168,17 +168,22 @@ if __name__ == "__main__":
     for h in net.hosts:
         outfiles[h] = './%s.out' % h.name
         errfiles[h] = './%s.err' % h.name
-        h.cmd('iperf ' + '-i ' + str(1) + ' -t ' + str(iperf_time+5) + ' -s'+ ' > '+ outfiles[h] + ' 2> ' + errfiles[h] +' &')
+        h.cmd('iperf ' + '-i ' + str(1) + ' -s' + ' &')
+        
     sleep(2)
+
     for sender in range(len(nx_topology.sender_to_receiver)):
         receiver = nx_topology.sender_to_receiver[sender] # int
         sender_host = net.get('h'+str(sender)) # host object
         receiver_host = net.get('h'+str(receiver)) # host object
-        command = 'iperf '+ '-i '+ str(1) + ' -t ' + str(iperf_time) + ' -c ' + receiver_host.IP() + ' &'
+        command = 'iperf '+ '-i '+ str(1) + ' -t ' + str(iperf_time) + ' -c ' + receiver_host.IP() + ' > '+ outfiles[sender_host] + ' 2> ' + errfiles[sender_host]
         print("sender:{} cmd:{}".format(sender_host.IP(), command))
-        sender_host.cmd(command)
-         
-    sleep(iperf_time + 10)
+        sender_host.sendCmd(command)
+
+
+    for h in net.hosts:
+        h.waitOutput()
+        h.cmd("kill -9 %iperf")
     
     for f in outfiles.values():
         start_flag = False
@@ -191,7 +196,7 @@ if __name__ == "__main__":
                     bw = line[b+1:a]
                 if 'Bandwidth' in line:
                     start_flag = True
-        #print (f, bw)
+        print (f, bw)
 
 
 
