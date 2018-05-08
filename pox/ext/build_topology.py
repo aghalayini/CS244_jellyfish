@@ -127,6 +127,16 @@ if __name__ == "__main__":
     pickle.dump(src_dest_to_next_hop,open("d1.p","w"))
     pickle.dump(host_ip_to_host_name,open("d2.p","w"))
 
+    for host_idx in range(len(nx_topology.sender_to_receiver)):
+        for idx in range(len(nx_topology.sender_to_receiver)):
+            if host_idx==idx:
+                continue
+            IP_to_MAC="10.0.0.{} 00:00:00:00:00:{}".format(idx+1,hex(idx+1).split('x')[-1])
+            command_str="sudo arp -s {}".format(IP_to_MAC)
+            sender_host = net.get('h'+str(host_idx))
+            sender_host.cmd(command_str)
+
+
     for h in net.hosts:
         h.cmd('iperf -s &')
  
@@ -140,8 +150,8 @@ if __name__ == "__main__":
         
     sleep(iperf_time)
     
-    for h in net.hosts:
-        print h.cmd('kill %iperf')
+    # for h in net.hosts:
+    #     print h.cmd('kill %iperf')
 
     #use popens?
     
