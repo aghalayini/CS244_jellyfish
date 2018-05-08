@@ -185,18 +185,23 @@ if __name__ == "__main__":
         h.waitOutput()
         h.cmd("kill -9 %iperf")
     
+    average = 0
     for f in outfiles.values():
         start_flag = False
+        bw = None
         with open(f, 'r') as o:
             for line in o:
                 if start_flag == True:
                     a = line.rfind('/sec')
                     a = line[0:a].rfind(' ')
                     b = line[0:a].rfind(' ')
-                    bw = line[b+1:a]
+                    bw = float(line[b+1:a])
                 if 'Bandwidth' in line:
                     start_flag = True
-        print (f, bw)
+        print(f, bw)
+        average += bw
+    average = float(average) / len(outfiles.values())
+    print ('average bandwidth between all pairs = '+str(average))
 
 
 
