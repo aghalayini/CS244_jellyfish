@@ -31,7 +31,7 @@ src_dest_to_next_hop = {} #d1 maps (src_switch_id, dest_switch_id, current_switc
 host_ip_to_host_name = {} #d2 e.g. maps '10.0.0.1' to 'h0'
 #nx_topology = None
 iperf_time = 10 # seconds
-nx_topology = NXTopology(number_of_servers=100, switch_graph_degree=4, number_of_links=100)
+nx_topology = NXTopology(number_of_servers=25, switch_graph_degree=4, number_of_links=50)
 
 # current_switch_id is string, e.g. '5'
 # returns int
@@ -77,12 +77,12 @@ class JellyFishTop(Topo):
         # connect switches to each other
         # for every link (i,j), switch with switch_id=i is connected to port number i of switch with switch_id=j
         for e in nx_topology.G.edges():
-            self.addLink('s'+str(e[0]+1), 's'+str(e[1]+1), e[1]+1, e[0]+1)
+            self.addLink('s'+str(e[0]+1), 's'+str(e[1]+1), e[1]+1, e[0]+1, bw=5000)
         
         # create hosts and connect them to ToR switch
         for h in range(nx_topology.number_of_servers):
             self.addHost('h'+str(h))
-            self.addLink('h'+str(h), 's'+str(nx_topology.get_rack_index(h)+1), 0, nx_topology.number_of_racks + h+1)
+            self.addLink('h'+str(h), 's'+str(nx_topology.get_rack_index(h)+1), 0, nx_topology.number_of_racks + h+1, bw=1000)
         
         def modify_dict(sender,receiver):
             node1 = nx_topology.get_rack_index(sender)
@@ -119,7 +119,7 @@ if __name__ == "__main__":
     os.system('sudo mn -c 2>/dev/null')
     setLogLevel('info')
     topo = JellyFishTop()
-    net = Mininet(topo=topo, host=CPULimitedHost, link=TCLink, controller=JELLYPOX,autoSetMacs=True) 
+    net = Mininet(topo=topo, host=CPULimitedHost, link=TCLink, controller=JELLYPOX, autoSetMacs=True) 
     net.start()
     sleep(20)
     print 'net started'
@@ -142,41 +142,44 @@ if __name__ == "__main__":
             command_str="sudo arp -s {}".format(IP_to_MAC)
             sender_host = net.get('h'+str(host_idx))
             sender_host.cmd(command_str)
+    
     '''
-    popens = {}
+    s_popens = {}
+    c_popens = {}
     for host in net.hosts:
-        popens[ host ] = host.popen("iperf -s -i 20")
+        s_popens[host] = host.popen("iperf -s -i 1 &")
 
     for sender in range(len(nx_topology.sender_to_receiver)):
         receiver = nx_topology.sender_to_receiver[sender] # int
         sender_host = net.get('h'+str(sender)) # host object
         receiver_host = net.get('h'+str(receiver)) # host object
-        popens[ sender_host ] = host.popen("iperf -c {} -i 20 -t 60".format(receiver_host.IP()))
+        c_popens[sender_host] = host.popen("iperf -c {} -i 1 -t 10 &".format(receiver_host.IP()))
+        # print "iperf -c {} -i 1 -t 60".format(receiver_host.IP())
  
     # Monitor them and print output
-    for host, line in pmonitor( popens ):
+    print (len(c_popens))
+    for host, line in pmonitor(c_popens):
         if host:
-            print( "<%s>: %s" % ( host.name, line ) )
+            print("<%s>: %s" % (host.name, line))
     '''
 
+    outfiles, errfiles = {}, {}
 
-
-    #for h in net.hosts:
-    #    h.cmd('iperf -s -i 20 &')
- 
+    for h in net.hosts:
+        outfiles[ h ] = './%s.out' % h.name
+        errfiles[h] = './%s.err' % h.name
+        h.cmd('iperf ' + '-i ' + str(1) + ' -t ' + str(iperf_time) + ' -s' + ' > ' + outfiles[h] + ' 2> ' + errfiles[h] + '&')
+    
     for sender in range(len(nx_topology.sender_to_receiver)):
         receiver = nx_topology.sender_to_receiver[sender] # int
         sender_host = net.get('h'+str(sender)) # host object
         receiver_host = net.get('h'+str(receiver)) # host object
-        command ='iperf -c '+receiver_host.IP()+' -i 20 -t 60 &'
+        command = 'iperf '+ '-i '+ str(1) + ' -t ' + str(iperf_time) + ' -c ' + receiver_host.IP() + ' > '+ outfiles[h] + ' 2> ' + errfiles[h] + '&'
         print("sender:{} cmd:{}".format(sender_host.IP(), command))
-        #sender_host.cmdPrint(command)     
-    #sleep(iperf_time)
-    
-    # for h in net.hosts:
-    #     print h.cmd('kill %iperf')
+        sender_host.cmd(command)
+         
+    sleep(iperf_time)
 
-    #use popens?
     CLI(net)
     net.stop()
     Cleanup.cleanup()
