@@ -31,7 +31,7 @@ src_dest_to_next_hop = {} #d1 maps (src_switch_id, dest_switch_id, current_switc
 host_ip_to_host_name = {} #d2 e.g. maps '10.0.0.1' to 'h0'
 #nx_topology = None
 iperf_time = 10 # seconds
-nx_topology = NXTopology(number_of_servers=25, switch_graph_degree=4, number_of_links=50)
+nx_topology = NXTopology(number_of_servers=100, switch_graph_degree=4, number_of_links=100)
 
 # current_switch_id is string, e.g. '5'
 # returns int
@@ -135,11 +135,14 @@ if __name__ == "__main__":
         for idx in range(len(nx_topology.sender_to_receiver)):
             if host_idx==idx:
                 continue
-            IP_to_MAC="10.0.0.{} 00:00:00:00:00:{}".format(idx+1,hex(idx+1).split('x')[-1])
+            if idx<15: 
+                IP_to_MAC="10.0.0.{} 00:00:00:00:00:{}".format(idx+1,'0'+hex(idx+1).split('x')[-1])
+            else:
+                IP_to_MAC="10.0.0.{} 00:00:00:00:00:{}".format(idx+1,hex(idx+1).split('x')[-1])
             command_str="sudo arp -s {}".format(IP_to_MAC)
             sender_host = net.get('h'+str(host_idx))
             sender_host.cmd(command_str)
-
+    '''
     popens = {}
     for host in net.hosts:
         popens[ host ] = host.popen("iperf -s -i 20")
@@ -148,34 +151,32 @@ if __name__ == "__main__":
         receiver = nx_topology.sender_to_receiver[sender] # int
         sender_host = net.get('h'+str(sender)) # host object
         receiver_host = net.get('h'+str(receiver)) # host object
-        popens[ sender_host ] = host.popen("iperf -c -i 20 -t 60 {}".format(receiver_host.IP()))
+        popens[ sender_host ] = host.popen("iperf -c {} -i 20 -t 60".format(receiver_host.IP()))
  
     # Monitor them and print output
     for host, line in pmonitor( popens ):
         if host:
             print( "<%s>: %s" % ( host.name, line ) )
+    '''
 
 
 
-'''
-    for h in net.hosts:
-        h.cmd('iperf -s -i 20 &')
+    #for h in net.hosts:
+    #    h.cmd('iperf -s -i 20 &')
  
     for sender in range(len(nx_topology.sender_to_receiver)):
         receiver = nx_topology.sender_to_receiver[sender] # int
         sender_host = net.get('h'+str(sender)) # host object
         receiver_host = net.get('h'+str(receiver)) # host object
         command ='iperf -c '+receiver_host.IP()+' -i 20 -t 60 &'
-        #print("sender:{} cmd:{}".format(sender_host.IP(), command))
-        sender_host.cmdPrint(command)
- '''       
+        print("sender:{} cmd:{}".format(sender_host.IP(), command))
+        #sender_host.cmdPrint(command)     
     #sleep(iperf_time)
     
     # for h in net.hosts:
     #     print h.cmd('kill %iperf')
 
     #use popens?
-    
     CLI(net)
     net.stop()
     Cleanup.cleanup()
