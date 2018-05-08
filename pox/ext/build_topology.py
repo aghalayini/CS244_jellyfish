@@ -14,7 +14,7 @@ sys.path.append("../../")
 from jelly_pox import JELLYPOX
 from subprocess import Popen
 from time import sleep, time
-from mininet.util import dumpNodeConnections
+from mininet.util import dumpNodeConnections,pmonitor
 import hashlib
 import networkx as nx
 from itertools import islice
@@ -140,7 +140,24 @@ if __name__ == "__main__":
             sender_host = net.get('h'+str(host_idx))
             sender_host.cmd(command_str)
 
+    popens = {}
+    for host in net.hosts:
+        popens[ host ] = host.popen("iperf -s -i 20")
 
+    for sender in range(len(nx_topology.sender_to_receiver)):
+        receiver = nx_topology.sender_to_receiver[sender] # int
+        sender_host = net.get('h'+str(sender)) # host object
+        receiver_host = net.get('h'+str(receiver)) # host object
+        popens[ sender_host ] = host.popen("iperf -c -i 20 -t 60 {}".format(receiver_host.IP()))
+ 
+    # Monitor them and print output
+    for host, line in pmonitor( popens ):
+        if host:
+            print( "<%s>: %s" % ( host.name, line ) )
+
+
+
+'''
     for h in net.hosts:
         h.cmd('iperf -s -i 20 &')
  
@@ -151,7 +168,7 @@ if __name__ == "__main__":
         command ='iperf -c '+receiver_host.IP()+' -i 20 -t 60 &'
         #print("sender:{} cmd:{}".format(sender_host.IP(), command))
         sender_host.cmdPrint(command)
-        
+ '''       
     #sleep(iperf_time)
     
     # for h in net.hosts:
