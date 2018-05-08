@@ -20,6 +20,7 @@ import networkx as nx
 from itertools import islice
 from mininet.log import setLogLevel
 import pickle
+import random
 
 
 # Topology port description:
@@ -34,7 +35,7 @@ nx_topology = NXTopology(number_of_servers=25, switch_graph_degree=4, number_of_
 
 # current_switch_id is string, e.g. '5'
 # returns int
-def get_next_hop(src_ip, dest_ip, src_port, dest_port, current_switch_id,src_dest_to_next_hop_u,host_ip_to_host_name_u):
+def get_next_hop(src_ip, dest_ip, src_port, dest_port, current_switch_id,current_port,src_dest_to_next_hop_u,host_ip_to_host_name_u):
     print("host_ip_to_host_name dict: {}".format(host_ip_to_host_name))
     src_host = host_ip_to_host_name_u[src_ip] # host object
     dest_host = host_ip_to_host_name_u[dest_ip] # host object
@@ -45,8 +46,11 @@ def get_next_hop(src_ip, dest_ip, src_port, dest_port, current_switch_id,src_des
     print("src_dest_to_next_hop dict: ",src_dest_to_next_hop_u) 
     next_switch_ids = src_dest_to_next_hop_u[(src_switch_id, dest_switch_id, int(current_switch_id))]
     print("next_switch_ids: ",next_switch_ids)
-    next_hop_index = next_hop_selector_hash(src_ip, dest_ip, src_port, dest_port, upper_limit=len(next_switch_ids))
+    next_hop_index = next_hop_selector_hash(src_ip, dest_ip, src_port, dest_port, upper_limit=len(next_switch_ids)) 
     next_hop = next_switch_ids[next_hop_index]
+    while next_hop==int(current_port):
+        next_hop_index=random.randint(0,len(next_switch_ids)-1)
+        next_hop=next_switch_ids[next_hop_index]
     return next_hop # because it is also the out_port we should send the packet to
 
     
@@ -138,17 +142,17 @@ if __name__ == "__main__":
 
 
     for h in net.hosts:
-        h.cmd('iperf -s &')
+        h.cmd('iperf -s -i 20 &')
  
     for sender in range(len(nx_topology.sender_to_receiver)):
         receiver = nx_topology.sender_to_receiver[sender] # int
         sender_host = net.get('h'+str(sender)) # host object
         receiver_host = net.get('h'+str(receiver)) # host object
-        command ='iperf -c '+receiver_host.IP()+' &'
-        print("sender:{} cmd:{}".format(sender_host.IP(), command))
-        sender_host.cmd(command)
+        command ='iperf -c '+receiver_host.IP()+' -i 20 -t 60 &'
+        #print("sender:{} cmd:{}".format(sender_host.IP(), command))
+        sender_host.cmdPrint(command)
         
-    sleep(iperf_time)
+    #sleep(iperf_time)
     
     # for h in net.hosts:
     #     print h.cmd('kill %iperf')

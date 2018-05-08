@@ -125,10 +125,11 @@ class JellySwitch (object):
                 #log.info(host_ip_to_host_name)
                 #log.info(str(ip_packet.srcip),str(ip_packet.dstip),str(tcp_packet.srcport),str(tcp_packet.dstport),str(event.dpid))
                 try:
-                    port=build_topology.get_next_hop(str(ip_packet.srcip),str(ip_packet.dstip),str(tcp_packet.srcport),str(tcp_packet.dstport),str(event.dpid),src_dest_to_next_hop,host_ip_to_host_name)
+                    port=build_topology.get_next_hop(str(ip_packet.srcip),str(ip_packet.dstip),str(tcp_packet.srcport),str(tcp_packet.dstport),str(event.dpid),str(event.port),src_dest_to_next_hop,host_ip_to_host_name)
                 except:
                     log.error("CANNOT GET NEXT HOP, CHECK DICTIONARIES")
-                    flood()
+                    #flood()
+                    return
                 if port == event.port:  # 
                     # 5a
                     log.warning("Same port for packet from %s -> %s on %s.%s.    Drop." % (packet.src, packet.dst, dpid_to_str(event.dpid), port))
