@@ -31,7 +31,7 @@ src_dest_to_next_hop = {} #d1 maps (src_switch_id, dest_switch_id, current_switc
 host_ip_to_host_name = {} #d2 e.g. maps '10.0.0.1' to 'h0'
 #nx_topology = None
 iperf_time = 10 # seconds
-nx_topology = NXTopology(number_of_servers=25, switch_graph_degree=4, number_of_links=50)
+nx_topology = NXTopology(number_of_servers=50, switch_graph_degree=4, number_of_links=50)
 
 # current_switch_id is string, e.g. '5'
 # returns int
@@ -77,12 +77,12 @@ class JellyFishTop(Topo):
         # connect switches to each other
         # for every link (i,j), switch with switch_id=i is connected to port number i of switch with switch_id=j
         for e in nx_topology.G.edges():
-            self.addLink('s'+str(e[0]+1), 's'+str(e[1]+1), e[1]+1, e[0]+1, bw=5000)
+            self.addLink('s'+str(e[0]+1), 's'+str(e[1]+1), e[1]+1, e[0]+1, bw=200)
         
         # create hosts and connect them to ToR switch
         for h in range(nx_topology.number_of_servers):
             self.addHost('h'+str(h))
-            self.addLink('h'+str(h), 's'+str(nx_topology.get_rack_index(h)+1), 0, nx_topology.number_of_racks + h+1, bw=1000)
+            self.addLink('h'+str(h), 's'+str(nx_topology.get_rack_index(h)+1), 0, nx_topology.number_of_racks + h+1, bw=100)
         
         def modify_dict(sender,receiver):
             node1 = nx_topology.get_rack_index(sender)
@@ -121,7 +121,7 @@ if __name__ == "__main__":
     topo = JellyFishTop()
     net = Mininet(topo=topo, host=CPULimitedHost, link=TCLink, controller=JELLYPOX, autoSetMacs=True) 
     net.start()
-    sleep(20)
+    sleep(2)
     print 'net started'
     
     for h in net.hosts:
@@ -168,8 +168,8 @@ if __name__ == "__main__":
     for h in net.hosts:
         outfiles[ h ] = './%s.out' % h.name
         errfiles[h] = './%s.err' % h.name
-        h.cmd('iperf ' + '-i ' + str(1) + ' -t ' + str(iperf_time) + ' -s' + ' > ' + outfiles[h] + ' 2> ' + errfiles[h] + '&')
-    
+        h.cmd('iperf ' + '-i ' + str(1) + ' -t ' + str(iperf_time+5) + ' -s' + ' > ' + outfiles[h] + ' 2> ' + errfiles[h] + '&')
+    sleep(5)
     for sender in range(len(nx_topology.sender_to_receiver)):
         receiver = nx_topology.sender_to_receiver[sender] # int
         sender_host = net.get('h'+str(sender)) # host object
@@ -178,7 +178,23 @@ if __name__ == "__main__":
         print("sender:{} cmd:{}".format(sender_host.IP(), command))
         sender_host.cmd(command)
          
-    sleep(iperf_time)
+    sleep(iperf_time + 5)
+    
+    for f in outfiles.values():
+        start_flag = False
+        with open(f, 'r') as o:
+            for line in o:
+                if start_flag == True:
+                    a = line.rfind('/sec')
+                    a = line[0:a].rfind(' ')
+                    b = line[0:a].rfind(' ')
+                    bw = line[b+1:a]
+                if 'Bandwidth' in line:
+                    start_flag = True
+        print (f, bw)
+
+
+
 
     CLI(net)
     net.stop()

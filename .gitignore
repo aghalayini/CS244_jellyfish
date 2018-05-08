@@ -53,3 +53,5 @@ docs/_build/
 *.png
 *.svg
 
+*.out
+*.err
