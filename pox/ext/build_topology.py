@@ -30,19 +30,18 @@ src_dest_to_next_hop = {} #d1 maps (src_switch_id, dest_switch_id, current_switc
 host_ip_to_host_name = {} #d2 e.g. maps '10.0.0.1' to 'h0'
 #nx_topology = None
 iperf_time = 10 # seconds
-nx_topology = NXTopology(number_of_servers=16, switch_graph_degree=2, number_of_links=3)
+nx_topology = NXTopology(number_of_servers=25, switch_graph_degree=4, number_of_links=50)
 
 # current_switch_id is string, e.g. '5'
 # returns int
 def get_next_hop(src_ip, dest_ip, src_port, dest_port, current_switch_id,src_dest_to_next_hop_u,host_ip_to_host_name_u):
-    with open('out.txt', 'a') as f:
-        f.write("host_ip_to_host_name dict: {}".format(host_ip_to_host_name))
+    print("host_ip_to_host_name dict: {}".format(host_ip_to_host_name))
     src_host = host_ip_to_host_name_u[src_ip] # host object
     dest_host = host_ip_to_host_name_u[dest_ip] # host object
-    src_switch_id = nx_topology.get_rack_index(int(str(src_host)[1:])) # int
-    dest_switch_id = nx_topology.get_rack_index(int(str(dest_host)[1:])) # int
+    src_switch_id = nx_topology.get_rack_index(int(str(src_host)[1:]))+1 # int
+    dest_switch_id = nx_topology.get_rack_index(int(str(dest_host)[1:]))+1 # int
     if str(dest_switch_id) == current_switch_id: # destination host is directly connected to current_switch
-        return nx_topology.number_of_racks + int(str(dest_host)[1:])
+        return nx_topology.number_of_racks + int(str(dest_host)[1:])+1
     print("src_dest_to_next_hop dict: ",src_dest_to_next_hop_u) 
     next_switch_ids = src_dest_to_next_hop_u[(src_switch_id, dest_switch_id, int(current_switch_id))]
     print("next_switch_ids: ",next_switch_ids)
@@ -81,9 +80,7 @@ class JellyFishTop(Topo):
             self.addHost('h'+str(h))
             self.addLink('h'+str(h), 's'+str(nx_topology.get_rack_index(h)+1), 0, nx_topology.number_of_racks + h+1)
         
-        
-        for sender in range(len(nx_topology.sender_to_receiver)):
-            receiver = nx_topology.sender_to_receiver[sender]
+        def modify_dict(sender,receiver):
             node1 = nx_topology.get_rack_index(sender)
             node2 = nx_topology.get_rack_index(receiver)
             # print(node1, node2)
@@ -94,57 +91,59 @@ class JellyFishTop(Topo):
             for path in k_shortest_paths:
                 for i in range(len(path)-1):
                     s = switch_to_next_hop.get(path[i], set())
-                    s.add(path[i+1])
+                    s.add(path[i+1]+1)
                     switch_to_next_hop[path[i]] = s
             
             
             for k in switch_to_next_hop.keys():
                 a = list(switch_to_next_hop[k])
                 a.sort()
-                src_dest_to_next_hop[(node1, node2, k)] = a
+                src_dest_to_next_hop[(node1+1, node2+1, k+1)] = a
             #print src_dest_to_next_hop
             #sleep(1)
             
             ecmp8 = islice(shortest_paths, nx_topology.ECMP_last_index(shortest_paths, 8) + 1)
             ecmp64 = islice(shortest_paths, nx_topology.ECMP_last_index(shortest_paths, 64) + 1)
                         
-    
+        for sender in range(len(nx_topology.sender_to_receiver)): 
+            receiver = nx_topology.sender_to_receiver[sender]
+            modify_dict(receiver,sender)
+            modify_dict(sender,receiver)
+
 
 if __name__ == "__main__":
     os.system('sudo mn -c 2>/dev/null')
     setLogLevel('info')
     topo = JellyFishTop()
-    net = Mininet(topo=topo, host=CPULimitedHost, link=TCLink, controller=JELLYPOX,autoSetMacs=True)
-    
+    net = Mininet(topo=topo, host=CPULimitedHost, link=TCLink, controller=JELLYPOX,autoSetMacs=True) 
     net.start()
-    sleep(3)
+    sleep(20)
     print 'net started'
     
     for h in net.hosts:
         host_ip_to_host_name[h.IP()] = str(h)
         print(h.IP(),h)
-    print(get_next_hop('10.0.0.1', '10.0.0.2', '1000', '5000', '0',src_dest_to_next_hop,host_ip_to_host_name))
+    #print(get_next_hop('10.0.0.1', '10.0.0.2', '1000', '5000', '6',src_dest_to_next_hop,host_ip_to_host_name))
     pickle.dump(src_dest_to_next_hop,open("d1.p","w"))
     pickle.dump(host_ip_to_host_name,open("d2.p","w"))
 
-    '''
     for h in net.hosts:
         h.cmd('iperf -s &')
-    
+ 
     for sender in range(len(nx_topology.sender_to_receiver)):
         receiver = nx_topology.sender_to_receiver[sender] # int
         sender_host = net.get('h'+str(sender)) # host object
         receiver_host = net.get('h'+str(receiver)) # host object
-        command ='iperf -c '+receiver_host.IP()+' -t '+str(iperf_time)+' -i '+str(iperf_time)+' &'
-        print command
+        command ='iperf -c '+receiver_host.IP()+' &'
+        print("sender:{} cmd:{}".format(sender_host.IP(), command))
         sender_host.cmd(command)
         
     sleep(iperf_time)
     
     for h in net.hosts:
         print h.cmd('kill %iperf')
-        
-    '''
+
+    #use popens?
     
     CLI(net)
     net.stop()

@@ -121,10 +121,14 @@ class JellySwitch (object):
                 log.info("%s, %s, %s, %s, %s" % (ip_packet.srcip,ip_packet.dstip,tcp_packet.srcport,tcp_packet.dstport,event.dpid))
                 src_dest_to_next_hop=pickle.load(open("pox/ext/d1.p","r"))
                 host_ip_to_host_name=pickle.load(open("pox/ext/d2.p","r"))
-                log.info(src_dest_to_next_hop)
-                log.info(host_ip_to_host_name)
+                #log.info(src_dest_to_next_hop)
+                #log.info(host_ip_to_host_name)
                 #log.info(str(ip_packet.srcip),str(ip_packet.dstip),str(tcp_packet.srcport),str(tcp_packet.dstport),str(event.dpid))
-                port=build_topology.get_next_hop(str(ip_packet.srcip),str(ip_packet.dstip),str(tcp_packet.srcport),str(tcp_packet.dstport),str(event.dpid),src_dest_to_next_hop,host_ip_to_host_name)
+                try:
+                    port=build_topology.get_next_hop(str(ip_packet.srcip),str(ip_packet.dstip),str(tcp_packet.srcport),str(tcp_packet.dstport),str(event.dpid),src_dest_to_next_hop,host_ip_to_host_name)
+                except:
+                    log.error("CANNOT GET NEXT HOP, CHECK DICTIONARIES")
+                    flood()
                 if port == event.port:  # 
                     # 5a
                     log.warning("Same port for packet from %s -> %s on %s.%s.    Drop." % (packet.src, packet.dst, dpid_to_str(event.dpid), port))
@@ -171,4 +175,6 @@ def launch ():
     core.registerNew(l2_jelly)
 
     import pox.openflow.spanning_tree
+
     pox.openflow.spanning_tree.launch(no_flood = True, hold_down = True)
+    #pox.openflow.spanning_tree.launch(no_flood = False, hold_down = False)
