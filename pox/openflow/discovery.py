@@ -325,8 +325,8 @@ class Discovery (EventMixin):
                if timestamp + self._link_timeout < now]
     if expired:
       for link in expired:
-        log.info('link timeout: %s', link)
-
+        #log.info('link timeout: %s', link)
+        pass
       self._delete_links(expired)
 
   def _handle_openflow_PacketIn (self, event):
@@ -448,7 +448,7 @@ class Discovery (EventMixin):
 
     if link not in self.adjacency:
       self.adjacency[link] = time.time()
-      log.info('link detected: %s', link)
+      #log.info('link detected: %s', link)
       self.raiseEventNoErrors(LinkEvent, True, link, event)
     else:
       # Just update timestamp
