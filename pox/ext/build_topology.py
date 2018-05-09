@@ -27,11 +27,17 @@ import random
 # Every switch with switch_id=i is connected to host_id by port "number_of_racks + host_id"
 #                               is connected to switch j by port "j"
 
-src_dest_to_next_hop = {} #d1 maps (src_switch_id, dest_switch_id, current_switch_id) to [next_switch_id1, next_switch_id2, ...]
-host_ip_to_host_name = {} #d2 e.g. maps '10.0.0.1' to 'h0'
-#nx_topology = None
-iperf_time = 10 # seconds
-nx_topology = NXTopology(number_of_servers=50, switch_graph_degree=4, number_of_links=50)
+src_dest_to_next_hop = {} # d1 maps (src_switch_id, dest_switch_id, current_switch_id) to [next_switch_id1, next_switch_id2, ...]
+host_ip_to_host_name = {} # d2 e.g. maps '10.0.0.1' to 'h0'
+
+######################################### Parameters #########################################
+iperf_time = 100 # seconds
+switch_switch_link_bw = 400 # Mbps
+switch_host_link_bw = 100 # Mbps
+r_method = '8_shortest' # 'ecmp8', 'ecmp64' or '8_shortest'
+number_of_tcp_flows = 1 # should be 1 or 8
+nx_topology = NXTopology(number_of_servers=100, switch_graph_degree=3, number_of_links=15)
+##############################################################################################
 
 # current_switch_id is string, e.g. '5'
 # returns int
@@ -77,12 +83,12 @@ class JellyFishTop(Topo):
         # connect switches to each other
         # for every link (i,j), switch with switch_id=i is connected to port number i of switch with switch_id=j
         for e in nx_topology.G.edges():
-            self.addLink('s'+str(e[0]+1), 's'+str(e[1]+1), e[1]+1, e[0]+1, bw=200)
+            self.addLink('s'+str(e[0]+1), 's'+str(e[1]+1), e[1]+1, e[0]+1, bw=switch_switch_link_bw)
         
         # create hosts and connect them to ToR switch
         for h in range(nx_topology.number_of_servers):
             self.addHost('h'+str(h))
-            self.addLink('h'+str(h), 's'+str(nx_topology.get_rack_index(h)+1), 0, nx_topology.number_of_racks + h+1, bw=100)
+            self.addLink('h'+str(h), 's'+str(nx_topology.get_rack_index(h)+1), 0, nx_topology.number_of_racks + h+1, bw=switch_host_link_bw)
         
         def modify_dict(sender,receiver):
             node1 = nx_topology.get_rack_index(sender)
@@ -90,9 +96,15 @@ class JellyFishTop(Topo):
             # print(node1, node2)
             shortest_paths = list(islice(nx.shortest_simple_paths(nx_topology.G, node1, node2), 64))
             
-            k_shortest_paths = islice(shortest_paths, nx_topology.shortest_path_k)
+            if r_method == '8_shortest':
+                selected_paths = islice(shortest_paths, nx_topology.shortest_path_k) # 8 shortest paths
+            elif r_method == 'ecmp8':
+                selected_paths = islice(shortest_paths, nx_topology.ECMP_last_index(shortest_paths, 8) + 1) #ECMP8
+            else:
+                selected_paths = islice(shortest_paths, nx_topology.ECMP_last_index(shortest_paths, 64) + 1) # ECMP64
+
             switch_to_next_hop = {}
-            for path in k_shortest_paths:
+            for path in selected_paths:
                 for i in range(len(path)-1):
                     s = switch_to_next_hop.get(path[i], set())
                     s.add(path[i+1]+1)
@@ -106,8 +118,7 @@ class JellyFishTop(Topo):
             #print src_dest_to_next_hop
             #sleep(1)
             
-            ecmp8 = islice(shortest_paths, nx_topology.ECMP_last_index(shortest_paths, 8) + 1)
-            ecmp64 = islice(shortest_paths, nx_topology.ECMP_last_index(shortest_paths, 64) + 1)
+            
                         
         for sender in range(len(nx_topology.sender_to_receiver)): 
             receiver = nx_topology.sender_to_receiver[sender]
@@ -117,7 +128,7 @@ class JellyFishTop(Topo):
 
 if __name__ == "__main__":
     os.system('sudo mn -c 2>/dev/null')
-    setLogLevel('info')
+    #setLogLevel('info')
     topo = JellyFishTop()
     net = Mininet(topo=topo, host=CPULimitedHost, link=TCLink, controller=JELLYPOX, autoSetMacs=True) 
     net.start()
@@ -170,13 +181,13 @@ if __name__ == "__main__":
         errfiles[h] = './%s.err' % h.name
         h.cmd('iperf ' + '-i ' + str(1) + ' -s' + ' &')
         
-    sleep(2)
+    sleep(10)
 
     for sender in range(len(nx_topology.sender_to_receiver)):
         receiver = nx_topology.sender_to_receiver[sender] # int
         sender_host = net.get('h'+str(sender)) # host object
         receiver_host = net.get('h'+str(receiver)) # host object
-        command = 'iperf '+ '-i '+ str(1) + ' -t ' + str(iperf_time) + ' -c ' + receiver_host.IP() + ' > '+ outfiles[sender_host] + ' 2> ' + errfiles[sender_host]
+        command = 'sleep 1; iperf '+ '-i '+ str(1) + ' -t ' + str(iperf_time) + ' -c ' + receiver_host.IP() + ' -P '+str(number_of_tcp_flows)+' > '+ outfiles[sender_host] + ' 2> ' + errfiles[sender_host]
         print("sender:{} cmd:{}".format(sender_host.IP(), command))
         sender_host.sendCmd(command)
 
@@ -184,15 +195,18 @@ if __name__ == "__main__":
     for h in net.hosts:
         h.waitOutput()
         h.cmd("kill -9 %iperf")
+        h.cmd('wait')
     
     average = 0
     for f in outfiles.values():
         start_flag = False
-        bw = None
+        bw = 0.0
         with open(f, 'r') as o:
             for line in o:
                 if start_flag == True:
                     a = line.rfind('/sec')
+                    if a < 0:
+                        continue
                     a = line[0:a].rfind(' ')
                     b = line[0:a].rfind(' ')
                     bw = float(line[b+1:a])
